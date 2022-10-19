@@ -1,0 +1,709 @@
+---
+title: "Analisis Performa FC Barcelona di La Liga 2021/2022"
+subtitle : "Apakah Xavi membawa FC Barcelona lebih baik?"
+author: "Helmi M Rizal"
+date: '2022-03-24'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+pacman::p_load(worldfootballR, dplyr, ggplot2,
+               readr, plotly, tidyr,
+               tidyverse, polite, scales,
+               rvest, data.table)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+setwd("D:/Daring/tetris/capstone")
+```
+
+# Latar Belakang
+
+Biasanya, hari Senin bukanlah hari yang banyak orang nantikan. Akan tetapi, sebagai pendukung FC Barcelona, Senin pagi, 21 Maret 2022, adalah pagi yang menyenangkan, setelah Barca -- sebutan FC Barcelona -- berhasil memenangi *El Clasico* melawan musuh bebuyutannya, Real Madrid, dengan skor telak 4 gol tanpa balas. Saya berusaha untuk melihat-lihat reaksi dari hasil pertandingan tersebut di dunia maya, dan kemudian saya menemukan [artikel ini](https://www.bola.net/spanyol/yang-tersisa-dari-el-clasico-real-madrid-vs-barcelona-tentang-xavi-dan-rekor-aubameyang-d44e7a.html)
+
+Dari artikel tersebut, beberapa fakta yang menarik perhatian saya adalah sebagai berikut:
+
+1. Xavi Hernandez adalah pelatih Barcelona ketiga yang berhasil memenangkan duel El Clasico dengan mencetak empat gol atau lebih, dalam sejarah La Liga. Sebelumnya ada Ferdinand Daucík pada 1951 (Barcelona 7-2 Real Madrid) dan Helenio Herrera pada 1959 (Barcelona 4-0 Real Madrid).
+2. Barcelona menjadi klub kedua dengan perolehan poin terbanyak di lima liga top Eropa pada 2022 (26 poin). Mereka hanya kalah dari Liverpool yang sukses mendulang 28 poin pada tahun ini.
+3. Barca juga berhasil memperpanjang catatan tak terkalahkan di La Liga menjadi 13 pertandingan (9 kemenangan; 4 imbang).
+
+Berdasarkan fakta-fakta di atas, muncul suatu **dugaan (hipotesis)** di pikiran saya, yaitu bahwa **Xavi membawa FC Barcelona tampil lebih baik**. Karena saya cukup penasaran, maka saya melakukan sedikit browsing di Internet untuk mencari [data-data](https://drive.google.com/drive/folders/1S9CS5JQE1wZefMd9_QY4KoWcy03RfIfb?usp=sharing) performa Barca sepanjang musim, untuk kemudian melakukan sedikit analisis terkait performa Barca di La Liga musim ini, yaitu *sampai game ke-28 tanggal 21 Maret 2022* dan berikut hasilnya:
+
+# Peningkatan Kualitas Penciptaan Peluang
+
+Lazimnya, sepakbola adalah olahraga dengan skor kecil, di mana sering terjadi pertandingan yang berakhir dengan skor misalnya 1-0, 1-1, atau bahkan 0-0. Maka dari itu, kemampuan sebuah tim untuk menciptakan peluang sangat penting untuk memenangkan setiap pertandingan.
+
+Di sini, saya akan membandingkan kualitas penciptaan peluang Barca sejak diasuh oleh Xavi dengan sebelum Xavi melatih Barca (di sini disebut dengan "pre-Xavi"), dalam 3 aspek, yaitu:
+
+1. Expected Goals (xG)
+2. Shot Creating Actions (SCA)
+3. Average Shot Distance
+
+## Expected Goals (xG)
+
+Secara singkat, [xG](https://fbref.com/en/expected-goals-model-explained/) adalah seberapa besar peluang dari sebuah *shot* untuk menjadi gol dengan melihat karakteristik dan proses terciptanya shot tersebut. **Semakin tinggi nilai xG, maka peluang untuk menciptakan goal akan makin besar**.
+
+Berikut adalah grafik xG Barca per game di La Liga 2021/2022
+
+
+```{r, echo=TRUE}
+## dataset = https://understat.com/team/Barcelona/2021
+
+```
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+barca_shots <- understat_team_season_shots(team_url = "https://understat.com/team/Barcelona/2021")
+
+xG_per_game <- barca_shots %>%
+  select(match_id, xG) %>%
+  group_by(match_id) %>%
+  summarize(xG = round(sum(xG), digits = 2)) %>%
+  mutate(game = row_number())
+
+xG_per_game$Coach <- as.factor(ifelse(xG_per_game$game<13, 'pre-Xavi', 'Xavi'))
+
+xG_plot <- ggplot(xG_per_game, aes(x = game, y = xG, fill = Coach)) +
+  geom_bar(stat='identity', alpha=.95) +
+  theme(plot.caption = element_text(size = 8)) +
+  labs(title='FC Barcelona: Expected Goals (xG) per game (La Liga 2021/2022)',
+       x='Game ke-',
+       y='xG') +
+  theme_bw() +
+  theme(legend.position = 'top')
+
+ggplotly(xG_plot)
+
+```
+
+
+Kemudian, berikut adalah perbandingan distribusi xG per game berdasarkan periode kepelatihan
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+xG_boxplot <- ggplot(xG_per_game, aes(x = Coach, y = xG)) +
+  geom_boxplot(aes(fill = Coach)) +
+  theme(plot.caption = element_text(size = 8)) +
+  labs(title='FC Barcelona: Distribusi Expected Goals (xG) per game (La Liga 2021/2022)',
+       x='Coach',
+       y='xG') +
+  theme_bw() +
+  theme(legend.position = 'top')
+
+ggplotly(xG_boxplot) %>%
+  layout(showlegend=FALSE)
+
+```
+
+
+Dari boxplot di atas, dapat dilihat bahwa **Barca mengalami peningkatan xG di bawah asuhan Xavi**. Artinya, kualitas peluang yang diciptakan makin baik, sehingga makin meningkatkan harapan terciptanya gol untuk Barca.
+
+## Shot Creating Actions (SCA)
+
+Sederhananya, SCA menggambarkan proses yang terjadi sebelum menciptakan peluang, misalnya umpan, pelanggaran, dsb. **Semakin tinggi angka SCA, maka peluang yang dihasilkan akan semakin banyak**, sehingga kemungkinan untuk mencetak gol semakin tinggi.
+
+Berikut adalah grafik SCA Barca per game di La Liga 2021/2022
+
+
+```{r, echo=TRUE}
+## dataset = barca_creation_fbref.csv
+
+```
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+barca_creation <- read.csv("./barca_creation_fbref.csv")
+
+sca_per_game <- barca_creation %>%
+  select(Opponent, SCA) %>%
+  mutate(game = row_number())
+
+sca_per_game$Coach <- as.factor(ifelse(sca_per_game$game<13, 'pre-Xavi', 'Xavi'))
+
+SCA_plot <- ggplot(sca_per_game, aes(x = game, 
+                                     y = SCA, 
+                                     label = Opponent,
+                                     fill= Coach)) +
+  geom_bar(stat='identity', alpha=.95) +
+  theme(plot.caption = element_text(size = 8)) +
+  labs(title='FC Barcelona: Shot Creating Actions (SCA) per game (La Liga 2021/2022)',
+       x='Game ke-',
+       y='SCA') +
+  theme_bw() +
+  theme(legend.position = 'top')
+
+ggplotly(SCA_plot)
+
+```
+
+
+Kemudian, berikut adalah perbandingan distribusi xG per game berdasarkan pelatih Barca
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+SCA_boxplot <- ggplot(sca_per_game, aes(x = Coach, y = SCA)) +
+  geom_boxplot(aes(fill = Coach)) +
+  theme(plot.caption = element_text(size = 8)) +
+  labs(title='FC Barcelona: Distribusi Shot Creating Actions (SCA) per game (La Liga 2021/2022)',
+       x='Coach',
+       y='SCA') +
+  theme_bw() +
+  theme(legend.position = 'top')
+
+ggplotly(SCA_boxplot) %>%
+  layout(showlegend=FALSE)
+  
+```
+
+
+Boxplot di atas menunjukkan bahwa **Barca mengalami peningkatan SCA di bawah asuhan Xavi**, sehingga jumlah peluang yang dihasilkan makin banyak, dan meningkatkan kemungkinan terjadinya gol.
+
+## Average Shot Distance
+
+Ini adalah rata-rata jarak dari *shot* yang diciptakan diukur dari gawang lawan. **Semakin dekat dengan gawang, maka kualitas *shot* dan kemungkinan mencetak gol akan meningkat**.
+
+Berikut adalah perbandingan distribusi Average Shot Distance berdasarkan periode kepelatihan
+
+
+```{r, echo=TRUE}
+## dataset = barca_shooting_fbref.csv
+
+```
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+barca_shooting <- read.csv("./barca_shooting_fbref.csv")
+
+shot_location <- barca_shooting %>%
+  select(Dist) %>%
+  mutate(game = row_number())
+
+shot_location$Coach = as.factor(ifelse(shot_location$game<13, 'pre-Xavi', 'Xavi'))
+
+xavi_shot_location <- shot_location %>%
+  filter(Coach == 'Xavi')
+
+xsloc <- data.frame(xavi = c(length(which(xavi_shot_location$Dist < 15)),
+                             length(which(xavi_shot_location$Dist >= 15 & xavi_shot_location$Dist <= 20)),
+                             length(which(xavi_shot_location$Dist > 20))))
+
+pre_xavi_shot_location <- shot_location %>%
+  filter(Coach == 'pre-Xavi')
+
+pxsloc <- data.frame(pre_xavi = c(length(which(pre_xavi_shot_location$Dist < 15)),
+                                  length(which(pre_xavi_shot_location$Dist >= 15 & pre_xavi_shot_location$Dist <= 20)),
+                                  length(which(pre_xavi_shot_location$Dist > 20))))
+
+location <- data.frame(area = c("< 15 yard", "15 s/d 20 yard", "> 20 yard"))
+
+shot_loc_comp <- cbind(xsloc, pxsloc, location)
+
+slc_plot <- plot_ly()
+
+slc_plot <- slc_plot %>% add_pie(data = shot_loc_comp, labels = ~area, values = ~xavi,
+                                 name = "Xavi", domain = list(row = 0, column = 0))
+
+slc_plot <- slc_plot %>% add_pie(data = shot_loc_comp, labels = ~area, values = ~pre_xavi,
+                                 name = "pre-Xavi", domain = list(row = 0, column = 1))
+
+slc_plot <- slc_plot %>% layout(title = "FC Barcelona: Average Shot Distance dari Gawang (La Liga 2021/2022)", showlegend = T,
+                                grid=list(rows=1, columns=2),
+                                xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                                yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+slc_plot
+
+```
+
+
+Pie chart di atas menunjukkan bahwa **jarak rata-rata shot yang dibuat oleh para pemain Barca di bawah asuhan Xavi semakin dekat dengan gawang**, sehingga memperbesar peluang terjadinya gol untuk Barca.
+
+# Peningkatan kondisi dan kebugaran fisik
+
+Olahraga adalah pertunjukan dari potensi fisik yang optimal yang dimiliki oleh manusia. Di sepakbola, kondisi fisik terlibat dalam banyak hal, mulai dari tingkat konsentrasi, daya jelajah, mentalitas, yang semuanya akan mempengaruhi hasil akhir pertandingan. Umumnya, tim dengan kondisi fisik yang prima sepanjang laga akan berpeluang untuk memenangkan pertandingan.
+
+Di sini, saya akan membandingkan kondisi fisik para pemain Barca sejak diasuh oleh Xavi dengan sebelum Xavi melatih Barca (di sini disebut dengan "pre-Xavi"), dalam 2 aspek, yaitu:
+
+1. Pressing Rate Area (PRA)
+2. Ball Winning Action (BWA)
+
+## Pressing Rate Area (PRA)
+
+Ini adalah rasio dari jumlah *pressing* yang dilakukan di tiap 1/3 area lapangan dengan jumlah total pressing yang dilakukan sepanjang pertandingan. *Pressing* sendiri berarti gangguan yang diberikan pemain Barca kepada pemain lawan yang sedang menguasai bola. **Semakin sering pemain lawan menghadapi pressing, maka kemungkinan pemain tersebut akan semakin mudah untuk kehilangan bola**, sehingga pemain Barca dapat kembali menguasai bola untuk menciptakan peluang.
+
+Berikut adalah perbandingan distribusi PRA berdasarkan periode kepelatihan
+
+
+```{r, echo=TRUE}
+## dataset = barca_defense_fbref.csv
+
+```
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+barca_defense <- read.csv("./barca_defense_fbref.csv")
+
+pressing_rate <- barca_defense %>%
+  select(Opponent, Press, Def.3rd.1, Mid.3rd.1, Att.3rd.1) %>%
+  mutate(def_pct = (Def.3rd.1/Press) %>% round(digits = 3) * 100,
+         mid_pct = (Mid.3rd.1/Press) %>% round(digits = 3) * 100,
+         att_pct = (Att.3rd.1/Press) %>% round(digits = 3) * 100,
+         game = row_number())
+         
+pressing_rate$Coach = as.factor(ifelse(pressing_rate$game<13, 'pre-Xavi', 'Xavi'))
+
+pra_pivot <- pressing_rate %>%
+  select(-c(1:5)) %>%
+  pivot_longer(pressing_rate,
+               cols = ends_with('pct'),
+               names_to = 'area',
+               values_to = 'pct')
+
+pra_pivot$area <- factor(pra_pivot$area, levels = c('def_pct', 'mid_pct', 'att_pct'))
+
+pra_boxplot <- ggplot(pra_pivot, aes(x = area, y = pct, fill = Coach)) +
+  geom_boxplot() +
+  theme(plot.caption = element_text(size = 14)) +
+  labs(title='FC Barcelona: Distribusi Pressing Rate Area (PRA) per game (La Liga 2021/2022)',
+       x = '',
+       y = '') +
+  theme_bw() +
+  theme(legend.position = 'top') +
+  facet_wrap(~area,
+             strip.position = "top", 
+             labeller = as_labeller(c(def_pct = "Defensive Third (dalam %)", 
+                                      mid_pct = "Middle Third (dalam %)",
+                                      att_pct = "Attacking Third (dalam %)")))
+
+ggplotly(pra_boxplot) %>%
+  layout(legend = list(orientation = "h",
+                       xanchor = "center",
+                       x = 0.5)) %>%
+  layout(boxmode='group')
+```
+
+
+Dari boxplot di atas, dapat dilihat bahwa **Barca meningkatkan intensitas dan konsistensi *pressing* hampir di seluruh area lapangan**, sehingga lebih berpeluang untuk merebut bola dari penguasaan lawan.
+
+## Ball Winning Action (BWA)
+
+Ketika kita berhasil melakukan *pressing* terhadap lawan, maka lawan akan kehilangan bola dan bola menjadi liar. Nah, BWA adalah aksi-aksi yang dilakukan untuk memenangi bola liar yang diperebutkan oleh kedua tim. Mengapa diperebutkan? Karena ketika sebuah tim menguasai bola, maka tim itu punya kesempatan untuk menciptakan peluang, menghasilkan gol, dan pada akhirnya memenangi pertandingan.
+
+Di sini, BWA akan dibagi menjadi 2 aksi, yaitu:
+1. **Aerial Duel Won (ADW)**, yaitu persentase duel udara yang dimenangkan tiap pertandingan
+2. **Recovery**, yaitu banyaknya bola liar yang berhasil direbut kembali oleh sebuah tim, selain melalui duel udara
+
+Berikut adalah grafik ADW Barca per game di La Liga 2021/2022
+
+
+```{r, echo=TRUE}
+## dataset = barca_duel_fbref.csv
+
+```
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+barca_duel <- read.csv("./barca_duel_fbref.csv")
+
+recov_adw_per_game <- barca_duel %>%
+  select(Opponent, Recov, Won.) %>%
+  mutate(game = row_number())
+
+recov_adw_per_game$Coach <- as.factor(ifelse(recov_adw_per_game$game<13, 'pre-Xavi', 'Xavi'))
+
+adw_plot <- ggplot(recov_adw_per_game, aes(x = game, 
+                                             y = Won., 
+                                             label = Opponent,
+                                             fill= Coach)) +
+  geom_bar(stat='identity', alpha=.95) +
+  theme(plot.caption = element_text(size = 8)) +
+  labs(title='FC Barcelona: Aerial Duels Won (ADW) per game (La Liga 2021/2022)',
+       x='Game ke-',
+       y='ADW (dalam %)') +
+  theme_bw() +
+  theme(legend.position = 'top')
+
+ggplotly(adw_plot)
+
+```
+
+
+Berikut adalah grafik Recovery Barca per game di La Liga 2021/2022
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+recov_plot <- ggplot(recov_adw_per_game, aes(x = game, 
+                                             y = Recov, 
+                                             label = Opponent,
+                                             fill= Coach)) +
+  geom_bar(stat='identity', alpha=.95) +
+  theme(plot.caption = element_text(size = 8)) +
+  labs(title='FC Barcelona: Recovery per game (La Liga 2021/2022)',
+       x='Game ke-',
+       y='Recovery') +
+  theme_bw() +
+  theme(legend.position = 'top')
+
+ggplotly(recov_plot)
+
+```
+
+
+Dan berikut adalah perbandingan distribusi ADW dan Recovery berdasarkan periode kepelatihan
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+recov_adw_pivot <- recov_adw_per_game %>%
+  select(-Opponent) %>%
+  pivot_longer(recov_adw_per_game,
+               cols = c('Recov', 'Won.'),
+               names_to = 'bwa',
+               values_to = 'values')
+  
+
+recov_adw_boxplot <- ggplot(recov_adw_pivot, aes(x = bwa, 
+                                                 y = values,
+                                                 fill = Coach)) +
+  geom_boxplot() +
+  theme(plot.caption = element_text(size = 14)) +
+  labs(title='FC Barcelona: Distribusi Ball Winning Action (BWA) per game (La Liga 2021/2022)',
+       x = '',
+       y = '') +
+  theme_bw() +
+  theme(legend.position = 'top') +
+  facet_wrap(~bwa,
+             scales = "free_y",
+             strip.position = "top", 
+             labeller = as_labeller(c(Recov = "Recovery", Won. = "ADW (dalam %)")))
+
+ggplotly(recov_adw_boxplot) %>%
+  layout(legend = list(orientation = "h",
+                       xanchor = "center",
+                       x = 0.5)) %>%
+  layout(boxmode='group')
+
+```
+
+
+Boxplot di atas memperlihatkan bahwa **Barca meningkatkan BWA di bawah asuhan Xavi**, sehingga Barca dapat lebih menguasai bola dan pertandingan.
+
+# Hasil dan Kesimpulan
+
+Grafik-grafik di atas menunjukkan bahwa Barca mengalami peningkatan performa di bawah asuhan Xavi, terutama pada aspek-aspek yang telah dijelaskan di atas. Peningkatan ini tampak pada hasil-hasil pertandingan Barca sejak era Coach Xavi. 
+
+Berikut adalah perbandingan track record Barca di La Liga berdasarkan periode kepelatihan
+
+
+```{r, echo=TRUE}
+## dataset = barca_shooting_fbref.csv
+
+```
+
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+record <- barca_shooting %>%
+  select(Result) %>%
+  mutate(game = row_number())
+
+record$Coach = as.factor(ifelse(record$game<13, 'pre-Xavi', 'Xavi'))
+
+xavi_record <- record %>%
+  filter(Coach == 'Xavi')
+
+xrec <- data.frame(xavi = c(length(which(xavi_record$Result == 'W')),
+                            length(which(xavi_record$Result == 'D')),
+                            length(which(xavi_record$Result == 'L'))))
+
+pre_xavi_record <- record %>%
+  filter(Coach == 'pre-Xavi')
+
+pxrec <- data.frame(pre_xavi = c(length(which(pre_xavi_record$Result == 'W')),
+                                 length(which(pre_xavi_record$Result == 'D')),
+                                 length(which(pre_xavi_record$Result == 'L'))))
+
+rec <- data.frame(hasil = c("Menang", "Seri", "Kalah"))
+
+record_comp <- cbind(xrec, pxrec, rec)
+
+record_plot <- plot_ly()
+
+record_plot <- record_plot %>% add_pie(data = record_comp, labels = ~hasil, values = ~xavi,
+                                 name = "Xavi", domain = list(row = 0, column = 0))
+
+record_plot <- record_plot %>% add_pie(data = record_comp, labels = ~hasil, values = ~pre_xavi,
+                                 name = "pre-Xavi", domain = list(row = 0, column = 1))
+
+record_plot <- record_plot %>% layout(title = "FC Barcelona: Records (La Liga 2021/2022)", showlegend = T,
+                                grid=list(rows=1, columns=2),
+                                xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                                yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+record_plot 
+
+```
+
+Kemudian, berikut adalah progres peringkat Barca di klasemen La Liga 2021/2022
+
+
+```{r, echo=TRUE}
+## dataset = SP1.csv
+
+```
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+# extract dataset
+df <- read.csv("SP1.csv")
+
+# Tambah kolom untuk home dan away point
+df <- df %>% mutate(HomePoints = ifelse(FTR == "H", 3, ifelse(FTR == "D", 1, 0)),
+                  AwayPoints = ifelse(FTR == "H", 0, ifelse(FTR == "D", 1, 3)))
+
+# Klasemen untuk hasil home
+HomeTable <- df %>% 
+  group_by(HomeTeam) %>% 
+  summarise(HomeGames = n(), 
+            HomeWins = sum(FTR == "H"),
+            HomeDraws = sum(FTR == "D"),
+            HomeLosses = sum(FTR == "A"),
+            HomeGoals = sum(FTHG),
+            HomeConcede = sum(FTAG),
+            HomeGD = HomeGoals - HomeConcede,
+            HomePoints = sum(HomePoints)) %>% 
+  rename("Team" = "HomeTeam")
+
+# Klasemen untuk hasil away
+AwayTable <- df %>% 
+  group_by(AwayTeam) %>% 
+  summarise(AwayGames = n(), 
+            AwayWins = sum(FTR == "A"), 
+            AwayDraws = sum(FTR == "D"), 
+            AwayLosses = sum(FTR == "H"), 
+            AwayGoals = sum(FTAG), 
+            AwayConcede = sum(FTHG), 
+            AwayGD = AwayGoals - AwayConcede, 
+            AwayPoints = sum(AwayPoints)) %>% 
+  rename("Team" = "AwayTeam")
+
+# Gabungkan klasemen home dan away
+TotalTable <- merge(HomeTable, AwayTable, by = "Team") %>% 
+  mutate(Played = HomeGames + AwayGames, 
+         Wins = HomeWins + AwayWins, 
+         Draws = HomeDraws + AwayDraws, 
+         Losses = HomeLosses + AwayLosses, 
+         GF = HomeGoals + AwayGoals, 
+         GA = HomeConcede + AwayConcede, 
+         GD = HomeGD + AwayGD, 
+         Points = HomePoints + AwayPoints)
+
+#Keeping only the total standings
+LeagueTable <- TotalTable[,c(1,18:25)]
+LeagueTable <- LeagueTable[order(-LeagueTable$Points, -LeagueTable$GD),]
+
+# Buat list kosong untuk menyimpan ranking tiap team per week
+listofranks <- list()
+
+# Buat for loop 
+# untuk menyimpan klasemen dalam list kosong per week
+for(i in 1:ceiling(nrow(df)/10)) 
+    {
+      z <- df %>% 
+        head(n = i*10) %>% 
+        mutate(HomePoints = ifelse(FTR == "H", 3, ifelse(FTR == "D", 1, 0)), 
+               AwayPoints = ifelse(FTR == "H", 0, ifelse(FTR == "D", 1, 3)))
+      home_standing <- z %>% 
+        group_by(HomeTeam) %>% 
+        summarise(HomeGames = n(), 
+                  HomeWins = sum(FTR == "H"), 
+                  HomeDraws = sum(FTR == "D"), 
+                  HomeLosses = sum(FTR == "A"), 
+                  HomeGoals = sum(FTHG), 
+                  HomeConcede = sum(FTAG), 
+                  HomeGD = HomeGoals - HomeConcede, 
+                  HomePoints = sum(HomePoints)) %>% 
+        rename("Team" = "HomeTeam")
+      away_standing <- z %>% 
+        group_by(AwayTeam) %>% 
+        summarise(AwayGames = n(), 
+                  AwayWins = sum(FTR == "A"), 
+                  AwayDraws = sum(FTR == "D"), 
+                  AwayLosses = sum(FTR == "H"), 
+                  AwayGoals = sum(FTAG), 
+                  AwayConcede = sum(FTHG), 
+                  AwayGD = AwayGoals - AwayConcede, 
+                  AwayPoints = sum(AwayPoints)) %>% 
+        rename("Team" = "AwayTeam")
+      
+      # Merge menjadi 'all = TRUE' 
+      # sehingga klasemen dapat terbentuk setelah week pertama, 
+      # dengan hanya 10 team will di home standing dan sisanya di away standing
+      total_standing <- merge(home_standing, away_standing, by = "Team", all = TRUE)
+      
+      # NA dari merge sebelumnya diubah menjadi 0
+      total_standing[is.na(total_standing)] <- 0
+      
+      total_standing <- total_standing %>% 
+        mutate(Played = HomeGames + AwayGames, 
+               Wins = HomeWins + AwayWins, 
+               Draws = HomeDraws + AwayDraws, 
+               Losses = HomeLosses + AwayLosses, 
+               GF = HomeGoals + AwayGoals, 
+               GA = HomeConcede + AwayConcede, 
+               GD = HomeGD + AwayGD, 
+               Points = HomePoints + AwayPoints)
+      
+      league_standing <- total_standing[,c(1,18:25)]
+      league_standing <- league_standing[order(-league_standing$Points, 
+                                               -league_standing$GD, 
+                                               -league_standing$GF),] %>% 
+        mutate(Rank = 1:20, Week = i)
+      
+      listofranks[[i]] <- league_standing[,c(1,8:11)]
+}
+
+# Gunakan rbindlist dari package data.table 
+# untuk menggabungkan list dataset sebelumnya
+weekly_standing <- rbindlist(listofranks)
+
+# filter klasemen mingguan untuk Barcelona
+barca_weekly_standing <- weekly_standing %>%
+  filter(Team == "Barcelona")
+
+# buat kategori baru berdasarkan pelatih FC Barcelona
+barca_weekly_standing$Coach <- as.factor(ifelse(barca_weekly_standing$Week<13, 'pre-Xavi', 'Xavi'))
+
+# plotting posisi klasemen Barca
+barca_movement_plot <- ggplot(barca_weekly_standing, aes(x = Week, y = Rank)) +
+  geom_point(stat='identity', alpha=.95) +
+  theme(plot.caption = element_text(size = 8)) +
+  labs(title='FC Barcelona: Posisi Klasemen per game (La Liga 2021/2022)',
+       subtitle ='data dari football-data.co.uk (sampai game ke-28, 21 Maret 2022)',
+       x='Game ke-',
+       y='Posisi ke-') +
+  geom_path(aes(x = Week, y = Rank, color = Coach)) +
+  scale_y_reverse() +
+  theme_bw() +
+  theme(legend.position = 'top')
+
+ggplotly(barca_movement_plot) 
+
+```
+
+Sebagai pendukung Barca, melihat dua grafik terakhir memberikan harapan dan angin segar untuk Barca di masa depan. Harapan ini mungkin akan semakin tinggi, jika melihat komposisi skuad Barca saat ini, yang didominasi oleh pemain muda level top Eropa, dengan beberapa dari mereka menjadi andalan Xavi di setiap pertandingan Barca.
+
+Untuk lebih jelasnya, berikut adalah grafik Age vs Utility Barca, yaitu perbandingan umur para pemain Barca dengan menit bermain yang mereka miliki di La Liga musim ini
+
+
+```{r, echo=TRUE}
+## dataset = https://www.transfermarkt.com/fc-barcelona/leistungsdaten/verein/131/reldata/ES1%262021/plus/1
+
+```
+
+```{r warning=FALSE, echo=FALSE, out.width='100%'}
+
+# scraping data umur pemain di url
+session <- bow("https://www.transfermarkt.com/fc-barcelona/leistungsdaten/verein/131/reldata/ES1%262021/plus/1")
+
+# mengambil nama-nama kolom
+result_name <- scrape(session) %>% 
+  html_nodes("#yw1 .bilderrahmen-fixed") %>% 
+  html_attr("title") 
+# mengambil umur pemain
+result_age <- scrape(session) %>% 
+  html_nodes(".posrela+ .zentriert") %>% 
+  html_text()
+# mengambil jumlah menit bermain 
+result_mins <- scrape(session) %>% 
+  html_nodes("td.rechts") %>% 
+  html_text()
+
+# membuat list dari hasil scraping
+resultados <- list(result_name, result_age, result_mins)
+col_name <- c("name", "age", "minutes")
+
+# lalu reduce(cbind) untuk menggabungkan list, ubah names menjadi cols 
+resultados %>% 
+  reduce(cbind) %>% 
+  as_tibble() %>% 
+  set_names(col_name) -> results_comb
+
+
+# transformasi data, simpan ke dataframe barca_minutes
+barca_minutes <- results_comb %>% 
+  # bandingkan total menit bermain dengan jumlah semua game (28)
+  mutate(age = as.numeric(age),
+         minutes = minutes %>% 
+           str_replace("\\.", "") %>% 
+           str_replace("'", "") %>% 
+           as.numeric(),
+         min_perc = (minutes / 2520) %>% round(digits = 3)) %>% 
+  # saring pemain yang belum pernah bermain sama sekali
+  filter(!is.na(minutes)) %>% 
+  # pisah nama depan dan nama belakang pemain
+  # untuk ditampilkan ke grafik
+  separate(name, into = c("first_name", "last_name"), sep = " ") %>% 
+  
+  # ubah penamaan pemain yang tidak sesuai kriteria
+  mutate(
+    last_name = case_when(                        
+      first_name == "Marc-André" ~ "ter Stegen",
+      first_name == "Neto" ~ "Neto",
+      first_name == "Pedri" ~ "Pedri",
+      first_name == "Frenkie" ~ "F. de Jong",
+      first_name == "Gavi" ~ "Gavi",
+      first_name == "Lucas" ~ "de Vega",
+      first_name == "Pierre-Emerick" ~ "Aubameyang",
+      first_name == "Luuk" ~ "L. de Jong",
+      TRUE ~ last_name)) %>% 
+  arrange(desc(min_perc))
+
+barca_minutes <- barca_minutes %>%
+  mutate(utility = min_perc * 100) %>%
+  mutate(puncak = ifelse(age < 25, "Belum", 
+                         ifelse(age >= 25 & age <= 30, 'Ya', 'Sudah Lewat')))
+
+# plot age vs utility
+barca_minutes_plot <- plot_ly(barca_minutes, x = ~age, y = ~utility, type = 'scatter', 
+                              mode = 'markers',
+                              color = ~puncak,
+                              size = 0.9,
+                              hoverinfo = 'text',
+                              text = ~paste('</br> Nama: ', last_name,
+                                            '</br> Usia: ', age, ' tahun',
+                                            '</br> % Menit Bermain: ', utility))
+
+barca_minutes_plot <- barca_minutes_plot %>%
+  layout(yaxis = list(ticksuffix = "%")) %>%
+  layout(title = "FC Barcelona: Age vs Utility (La Liga 2021/2022)") %>%
+  layout(legend = list(title=list(text=' Usia Puncak? ')))
+
+barca_minutes_plot
+
+```
+
+
+Jadi, setelah melihat analisis di atas mengenai Barca di La liga musim ini, maka hipotesis yang saya buat di awal cukup tepat, yaitu bahwa **Xavi membawa FC Barcelona tampil lebih baik**. Musim ini mungkin terlalu arogan untuk berkata bahwa FC Barcelona adalah tim sepakbola terhebat di muka bumi, tetapi bagaimana kalau kita tunggu musim depan?
+
+
+
+
+
+## Referensi
+
+* [fbref.com](https://fbref.com/en/squads/206d90db/Barcelona-Stats)
+* [transfermarkt.com](https://www.transfermarkt.com/fc-barcelona/leistungsdaten/verein/131/reldata/ES1%262021/plus/1)
+* [understat.com](https://understat.com/team/Barcelona/2021)
