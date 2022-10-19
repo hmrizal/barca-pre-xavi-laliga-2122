@@ -3,4 +3,4 @@ Analisis performa FC Barcelona di La Liga 2021/2022 sebelum dan saat dilatih Xav
 
 Versi publik (webpage) dari RMarkdown (capstone_tetris_helmimrizal.Rmd) dapat dilihat [di sini](https://rpubs.com/helmimrizal/xavi_barca_comp)
 
-Versi publik (webpage) dari Jupyter Notebook (barca-min-play-la-liga-2122.ipynb) dapat dilihat [di sini](nbviewer.org)
+Versi publik (webpage) dari Jupyter Notebook (barca-min-play-la-liga-2122.ipynb) dapat dilihat [di sini](https://nbviewer.org/github/hmrizal/barca-pre-xavi-laliga-2122/blob/d557e9383b877bdd188b38f494c980beb6fa3900/jupyter-notebook/barca-min-play-la-liga-2122.ipynb)
